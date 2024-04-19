@@ -20,9 +20,18 @@ const socket = io("http://localhost:3009/", {
 function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [message, setMessage] = useState("hello");
+  const [name, setName] = useState("");
+  const [isSendName, setIsSendName] = useState(false);
 
   const onChangeMessage = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setMessage(e.currentTarget.value);
+  };
+  const onChangeName = (e: ChangeEvent<HTMLInputElement>) => {
+    setName(e.currentTarget.value);
+  };
+  const onSendName = () => {
+    socket.emit("send-name-user", name);
+    setIsSendName(true);
   };
   const onSendMessage = () => {
     socket.emit("client-message-sent", message);
@@ -31,6 +40,9 @@ function App() {
   useEffect(() => {
     socket.on("init-messages-published", (messages: Message[]) => {
       setMessages(messages);
+    });
+    socket.on("new-messages-send", (message: Message) => {
+      setMessages((state) => [...state, message]);
     });
   }, []);
 
@@ -46,6 +58,12 @@ function App() {
         ))}
       </div>
       <div>
+        <input value={name} onChange={onChangeName} />
+        <button disabled={name === ""} onClick={onSendName}>
+          send name
+        </button>
+      </div>
+      <div>
         <textarea
           placeholder="message"
           value={message}
@@ -53,7 +71,10 @@ function App() {
         />
       </div>
       <div>
-        <button disabled={message === ""} onClick={onSendMessage}>
+        <button
+          disabled={message === "" || !isSendName}
+          onClick={onSendMessage}
+        >
           Send
         </button>
       </div>
