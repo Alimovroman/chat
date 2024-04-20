@@ -6,30 +6,29 @@ import React, {
   useState,
 } from "react";
 import "./App.css";
-import { io } from "socket.io-client";
-
-type User = {
-  id: number;
-  name: string;
-};
-type Message = {
-  id: number;
-  message: string;
-  user: User;
-};
-
-const socket = io("http://localhost:3009/", {
-  // reconnectionDelayMax: 10000,
-});
+import {
+  createConnection,
+  destroyConnection,
+  sendMessage,
+  sendName,
+  typeMessage,
+} from "../chat-reducer";
+import { useDispatch, useSelector } from "react-redux";
+import { AppRootState } from "./store";
 
 function App() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  // const [messages, setMessages] = useState<Message[]>([]);
   const [message, setMessage] = useState("hello");
   const [name, setName] = useState("");
   const [isSendName, setIsSendName] = useState(false);
   const messagesAncorRef = useRef<HTMLDivElement>(null);
   const [isAutoScroll, setIsAutoScroll] = useState(true);
   const [lastScrollTop, setLastScrollTop] = useState(0);
+  const messages = useSelector((state: AppRootState) => state.chat.messages);
+  const typingUsers = useSelector(
+    (state: AppRootState) => state.chat.typingUsers
+  );
+  const dispatch = useDispatch();
 
   const onChangeMessage = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setMessage(e.currentTarget.value);
@@ -38,12 +37,15 @@ function App() {
     setName(e.currentTarget.value);
   };
   const onSendName = () => {
-    socket.emit("send-name-user", name);
+    dispatch(sendName(name));
     setIsSendName(true);
   };
   const onSendMessage = () => {
-    socket.emit("client-message-sent", message);
+    dispatch(sendMessage(message));
     setMessage("");
+  };
+  const onShowMessage = () => {
+    dispatch(typeMessage());
   };
   const onAutoScrollChange = (e: UIEvent) => {
     let maxScrollHeight =
@@ -60,12 +62,11 @@ function App() {
   };
 
   useEffect(() => {
-    socket.on("init-messages-published", (messages: Message[]) => {
-      setMessages(messages);
-    });
-    socket.on("new-messages-send", (message: Message) => {
-      setMessages((state) => [...state, message]);
-    });
+    dispatch(createConnection());
+
+    return () => {
+      dispatch(destroyConnection());
+    };
   }, []);
   useEffect(() => {
     if (isAutoScroll) {
@@ -85,9 +86,17 @@ function App() {
         onScroll={onAutoScrollChange}
       >
         {messages.map((m, i) => (
-          <div key={i}>
+          <div key={m.id}>
             <div>
               {m.user.name} : {m.message}
+              <hr />
+            </div>
+          </div>
+        ))}
+        {typingUsers.map((u, i) => (
+          <div key={u.id}>
+            <div>
+              {u.name} : ...
               <hr />
             </div>
           </div>
@@ -104,6 +113,7 @@ function App() {
         <textarea
           placeholder="message"
           value={message}
+          onKeyPress={onShowMessage}
           onChange={onChangeMessage}
         />
       </div>
