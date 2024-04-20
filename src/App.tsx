@@ -1,5 +1,10 @@
-import React, { ChangeEvent, useEffect, useState } from "react";
-import logo from "./logo.svg";
+import React, {
+  ChangeEvent,
+  UIEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import "./App.css";
 import { io } from "socket.io-client";
 
@@ -22,6 +27,9 @@ function App() {
   const [message, setMessage] = useState("hello");
   const [name, setName] = useState("");
   const [isSendName, setIsSendName] = useState(false);
+  const messagesAncorRef = useRef<HTMLDivElement>(null);
+  const [isAutoScroll, setIsAutoScroll] = useState(true);
+  const [lastScrollTop, setLastScrollTop] = useState(0);
 
   const onChangeMessage = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setMessage(e.currentTarget.value);
@@ -37,6 +45,20 @@ function App() {
     socket.emit("client-message-sent", message);
     setMessage("");
   };
+  const onAutoScrollChange = (e: UIEvent) => {
+    let maxScrollHeight =
+      e.currentTarget.scrollHeight - e.currentTarget.clientHeight;
+    if (
+      e.currentTarget.scrollTop > lastScrollTop &&
+      Math.abs(maxScrollHeight - e.currentTarget.scrollTop) < 10
+    ) {
+      setIsAutoScroll(true);
+    } else {
+      setIsAutoScroll(false);
+    }
+    setLastScrollTop(e.currentTarget.scrollTop);
+  };
+
   useEffect(() => {
     socket.on("init-messages-published", (messages: Message[]) => {
       setMessages(messages);
@@ -45,17 +67,32 @@ function App() {
       setMessages((state) => [...state, message]);
     });
   }, []);
+  useEffect(() => {
+    if (isAutoScroll) {
+      messagesAncorRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
 
   return (
     <div className="App">
-      <div>
+      <div
+        style={{
+          width: "200px",
+          height: "300px",
+          border: "1px solid black",
+          overflow: "scroll",
+        }}
+        onScroll={onAutoScrollChange}
+      >
         {messages.map((m, i) => (
           <div key={i}>
             <div>
               {m.user.name} : {m.message}
+              <hr />
             </div>
           </div>
         ))}
+        <div ref={messagesAncorRef} />
       </div>
       <div>
         <input value={name} onChange={onChangeName} />
